@@ -49,12 +49,30 @@ aerodynamic-coefficient-prediction-ann/
 └── requirements.txt
 ```
 
+## Setup
+
+Create and activate a virtual environment, then install the dependencies (Python 3.10+ recommended):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+To run the notebooks, start Jupyter from the activated environment:
+
+```bash
+jupyter notebook notebooks/
+```
+
+JavaFoil is additionally required only to regenerate the datasets with the scripts in `scripts/`.
+
 ## Data
 
 The six datasets (about 340 MB) are hosted on Hugging Face: https://huggingface.co/datasets/nevilcp/aerodynamic-coefficient-prediction-ann
 
 ```bash
-pip install huggingface_hub
 hf download nevilcp/aerodynamic-coefficient-prediction-ann --repo-type dataset --local-dir results
 ```
 
@@ -196,9 +214,3 @@ The drag coefficient consistently yielded the lowest $R^2$ in cross-family tests
 4. **Cross-family generalization is robust for $C_L$ and $C_m$, but limited for $C_D$ in single-direction transfer.** Training on the combined dataset removes this limitation almost entirely. The network appears to learn the geometric design space rather than memorizing individual profiles.
 
 5. **Drag prediction in the stall regime remains a known limitation.** The restricted angle-of-attack range (−10° to +10°) and the predominance of linear $C_L$–$\alpha$ samples in the dataset introduce a mild bias that causes the model to underperform near stall angles, particularly for airfoils such as NACA 2412 and NACA 6408.
-
----
-
-## Software Dependencies
-
-Install the Python dependencies with `pip install -r requirements.txt`. JavaFoil is additionally required only to regenerate the datasets.
