@@ -1,11 +1,5 @@
 # Airfoil's Aerodynamic Coefficient Prediction using Artificial Neural Networks
 
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-Keras-orange)
-[![Dataset](https://img.shields.io/badge/dataset-Hugging%20Face-yellow)](https://huggingface.co/datasets/nevilcp/aerodynamic-coefficient-prediction-ann)
-
-**Contents:** [Overview](#overview) · [Research Context](#research-context-and-motivation) · [Repository Structure](#repository-structure) · [Data](#data) · [Getting Started](#getting-started) · [Methodology](#methodology) · [Results](#experimental-design-and-results) · [Key Findings](#key-findings) · [Software Dependencies](#software-dependencies)
-
 ## Overview
 
 This repository contains the complete, end-to-end replication and extension of the methodology described in:
@@ -50,13 +44,10 @@ aerodynamic-coefficient-prediction-ann/
 │   ├── generate_NACA5D_10.py
 │   └── generate_NACA5D_15.py
 │
-├── .gitignore
-├── Project_1_Report.pdf
+├── Aerodynamic_Coefficient_Prediction_ANN_Report.pdf
 ├── README.md
 └── requirements.txt
 ```
-
-The `results/` directory holds the datasets after download and is excluded from version control.
 
 ## Data
 
@@ -74,23 +65,7 @@ import pandas as pd
 df = pd.read_csv("hf://datasets/nevilcp/aerodynamic-coefficient-prediction-ann/data/NACA4D_10.csv")
 ```
 
-## Getting Started
-
-```bash
-git clone https://github.com/nevilcp/aerodynamic-coefficient-prediction-ann.git
-cd aerodynamic-coefficient-prediction-ann
-
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-hf download nevilcp/aerodynamic-coefficient-prediction-ann --repo-type dataset --local-dir results
-jupyter notebook notebooks/
-```
-
-Each notebook loads its dataset through a `read_csv` call with an absolute path; update it to the downloaded file, for example `results/data/NACA4D_10.csv`.
-
-The datasets can be downloaded as shown above or regenerated with the scripts in `scripts/`, which require JavaFoil.
+The notebooks read each dataset through a `read_csv` call with an absolute path; update it to the downloaded file (for example `results/data/NACA4D_10.csv`). The data can also be regenerated with the scripts in `scripts/`, which require JavaFoil.
 
 ---
 
@@ -226,19 +201,4 @@ The drag coefficient consistently yielded the lowest $R^2$ in cross-family tests
 
 ## Software Dependencies
 
-All Python dependencies, with compatible version ranges, are listed in [`requirements.txt`](requirements.txt).
-
-| Package | Purpose |
-|---|---|
-| Python ≥ 3.10 | Core language |
-| TensorFlow ≥ 2.16 / Keras ≥ 3 | Neural network construction and training |
-| NumPy | Numerical array operations |
-| Pandas | Dataset loading and manipulation |
-| Scikit-learn | Data splitting and standardization |
-| Matplotlib | Result visualization |
-| tqdm | Progress reporting in data generation scripts |
-| huggingface_hub | Dataset download |
-| Jupyter | Interactive notebook execution |
-| JavaFoil | Aerodynamic data generation (external, not a Python package; only needed to regenerate the data) |
-
----
+Install the Python dependencies with `pip install -r requirements.txt`. JavaFoil is additionally required only to regenerate the datasets.
