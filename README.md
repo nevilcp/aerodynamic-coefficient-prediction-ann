@@ -48,6 +48,22 @@ aerodynamic-coefficient-prediction-ann/
 └── README.md
 ```
 
+## Data
+
+The six datasets (about 340 MB) are hosted on Hugging Face: https://huggingface.co/datasets/nevilcp/aerodynamic-coefficient-prediction-ann
+
+```bash
+pip install huggingface_hub
+hf download nevilcp/aerodynamic-coefficient-prediction-ann --repo-type dataset --local-dir results
+```
+
+Or load a single file directly:
+
+```python
+import pandas as pd
+df = pd.read_csv("hf://datasets/nevilcp/aerodynamic-coefficient-prediction-ann/data/NACA4D_10.csv")
+```
+
 ---
 
 ## Methodology
