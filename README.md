@@ -44,7 +44,7 @@ aerodynamic-coefficient-prediction-ann/
 │   ├── generate_NACA5D_10.py
 │   └── generate_NACA5D_15.py
 │
-├── Aerodynamic_Coefficient_Prediction_ANN_Report.pdf
+├── Project_1_Report.pdf
 ├── README.md
 └── requirements.txt
 ```
