@@ -1,0 +1,1 @@
+Geometry envelopes of the NACA 4-digit and 5-digit airfoils at the sampled surface coordinates.

@@ -1,0 +1,1 @@
+Architecture (1024-512-256-3). Mean squared error (MSE) is the squared prediction error averaged over samples and the three outputs (CL, CD, Cm), with equal weight for each output. Targets are unscaled; no target normalisation is applied. Curves show the median and 10–90% range across 20 independent training runs (random seeds).

@@ -1,0 +1,1 @@
+Architecture comparison. Test RMSE and 1 − R²: mean ± SD across 20 independent training runs (random seeds). RMSE values are shown in units of 10⁻³. The 1 − R² axis is logarithmic; lower values indicate better predictions.

@@ -1,0 +1,1 @@
+Test set (n = 35,532). Target and predicted coefficients for architecture (1024-512-256-3). Seed 42 is fixed in advance and is not selected by validation or test performance. Panel metrics (1 − R² and RMSE) are computed from the plotted test predictions in the original coefficient scale, not averaged across training runs. The dashed line shows ideal agreement.

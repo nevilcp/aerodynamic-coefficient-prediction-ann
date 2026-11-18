@@ -83,7 +83,7 @@ import pandas as pd
 df = pd.read_csv("hf://datasets/nevilcp/aerodynamic-coefficient-prediction-ann/data/NACA4D_10.csv")
 ```
 
-The notebooks read each dataset through a `read_csv` call with an absolute path; update it to the downloaded file (for example `results/data/NACA4D_10.csv`). The data can also be regenerated with the scripts in `scripts/`, which require JavaFoil.
+The notebooks locate downloaded datasets under `results/data/` or `results/<dataset>/`. The data can also be regenerated with the scripts in `scripts/`, which require JavaFoil.
 
 ---
 
@@ -122,7 +122,7 @@ The parameter ranges surveyed are summarized below:
 This yields 560 unique NACA 4-digit geometries and 1,120 unique NACA 5-digit geometries, each evaluated at 315 flight conditions. After removal of erroneous samples (arising from JavaFoil convergence failures at extreme camber conditions, and 5-digit cases where the trailing edge did not lie on the chord axis within a tolerance of 0.015 non-dimensionalized chord lengths), the final valid sample counts are:
 
 - **NACA 4-digit datasets:** 176,400 samples (all cases retained)
-- **NACA 5-digit datasets:** 236,880 samples (after filtering)
+- **NACA 5-digit datasets:** 236,880 samples for NACA5D_05 and NACA5D_15, and 236,670 for NACA5D_10 (after filtering)
 
 ### Data Preprocessing
 
@@ -142,40 +142,40 @@ All models were implemented in **Python** using **TensorFlow/Keras**. The archit
 - **Learning rate schedule:** Reduced by 10% if validation loss does not improve for 5 consecutive epochs (patience = 5)
 - **Output layer:** 3 neurons (one each for $C_L$, $C_D$, $C_m$), no activation
 
-The final architecture selected from systematic experiments is **[512, 256, 128, 3]**.
+The reference architecture used for comparisons is **[512, 256, 128, 3]**; the notebooks rank architectures using validation data.
 
 ---
 
 ## Experimental Design and Results
 
-All results were obtained by averaging over **20 independent training runs** per configuration, with the model achieving the best average test loss reported. This procedure guards against sensitivity to random weight initialization.
+All results were obtained by averaging over **20 independent training runs** per configuration, with architectures ranked by normalized validation MSE. This procedure guards against sensitivity to random weight initialization.
 
 ### Effect of Network Depth
 
-Holding the neuron count per layer fixed (halving at each successive layer), network depth was varied from two to five layers. Performance consistently improved from two to four hidden layers across all six datasets; beyond four layers, gains diminished or reversed slightly. The four-layer configuration [64, 32, 16, 3] was adopted as the baseline depth.
+Holding the neuron count per layer fixed (halving at each successive layer), network depth was varied from two to five layers. Performance generally improved through three hidden layers; a fourth produced mixed results. The four-layer configuration [64, 32, 16, 3] was adopted as the baseline depth.
 
 Representative results for NACA4D\_10:
 
 | Case | Architecture | RMSE ($C_L$) | RMSE ($C_D$) | RMSE ($C_m$) | $R^2$ ($C_L$) | $R^2$ ($C_D$) | $R^2$ ($C_m$) |
 |---|---|---|---|---|---|---|---|
-| 1 | [64, 3] | 0.005312 | 0.004230 | 0.002296 | 0.999967 | 0.846132 | 0.999583 |
-| 2 | [64, 32, 3] | 0.004231 | 0.003978 | 0.001881 | 0.999979 | 0.863597 | 0.999721 |
-| **3** | **[64, 32, 16, 3]** | **0.004128** | **0.003866** | **0.001939** | **0.999980** | **0.871552** | **0.999701** |
-| 4 | [64, 32, 16, 8, 3] | 0.003975 | 0.003922 | 0.001817 | 0.999981 | 0.867454 | 0.999738 |
+| 1 | [64, 3] | 0.005239 | 0.004337 | 0.002236 | 0.999968 | 0.845467 | 0.999605 |
+| 2 | [64, 32, 3] | 0.004124 | 0.004050 | 0.001806 | 0.999980 | 0.865516 | 0.999742 |
+| **3** | **[64, 32, 16, 3]** | **0.003994** | **0.003983** | **0.001810** | **0.999981** | **0.869982** | **0.999739** |
+| 4 | [64, 32, 16, 8, 3] | 0.004033 | 0.004017 | 0.001882 | 0.999981 | 0.867552 | 0.999717 |
 
 ### Effect of Network Width
 
-Using the four-layer depth, the number of neurons per layer was progressively doubled. Prediction accuracy improved monotonically with width, but the marginal gain between Case 4 [512, 256, 128, 3] and Case 5 [1024, 512, 256, 3] was negligible relative to the added computational cost. **Case 4 was selected as the final architecture.**
+Using the four-layer depth, the number of neurons per layer was progressively doubled. Prediction accuracy generally improved with width, but the marginal gain between Case 4 [512, 256, 128, 3] and Case 5 [1024, 512, 256, 3] was negligible relative to the added computational cost. **Case 4 is used for the resolution comparison.**
 
 Representative results for NACA4D\_10:
 
 | Case | Architecture | RMSE ($C_L$) | RMSE ($C_D$) | RMSE ($C_m$) | $R^2$ ($C_L$) | $R^2$ ($C_D$) | $R^2$ ($C_m$) |
 |---|---|---|---|---|---|---|---|
-| 1 | [64, 32, 16, 3] | 0.004142 | 0.003848 | 0.001800 | 0.999980 | 0.872731 | 0.999745 |
-| 2 | [128, 64, 32, 3] | 0.003152 | 0.003521 | 0.001312 | 0.999888 | 0.893397 | 0.999864 |
-| 3 | [256, 128, 64, 3] | 0.002699 | 0.003251 | 0.000991 | 0.999990 | 0.909062 | 0.999923 |
-| **4** | **[512, 256, 128, 3]** | **0.002267** | **0.003147** | **0.000868** | **0.999994** | **0.914501** | **0.999940** |
-| 5 | [1024, 512, 256, 3] | 0.002266 | 0.003086 | 0.000864 | 0.999993 | 0.917466 | 0.999939 |
+| 1 | [64, 32, 16, 3] | 0.003994 | 0.003983 | 0.001810 | 0.999981 | 0.869982 | 0.999739 |
+| 2 | [128, 64, 32, 3] | 0.003056 | 0.003674 | 0.001354 | 0.999989 | 0.889100 | 0.999853 |
+| 3 | [256, 128, 64, 3] | 0.002504 | 0.003359 | 0.001030 | 0.999992 | 0.907477 | 0.999915 |
+| **4** | **[512, 256, 128, 3]** | **0.002180** | **0.003164** | **0.000926** | **0.999994** | **0.917902** | **0.999931** |
+| 5 | [1024, 512, 256, 3] | 0.002225 | 0.003101 | 0.000891 | 0.999994 | 0.921160 | 0.999933 |
 
 ### Effect of Geometric Resolution
 
@@ -183,9 +183,9 @@ The final architecture [512, 256, 128, 3] was evaluated across the three coordin
 
 | Dataset | RMSE ($C_L$) | RMSE ($C_D$) | RMSE ($C_m$) | $R^2$ ($C_L$) | $R^2$ ($C_D$) | $R^2$ ($C_m$) |
 |---|---|---|---|---|---|---|
-| NACA4D\_05 | 0.002750 | 0.003425 | 0.000968 | 0.999990 | 0.904181 | 0.999922 |
-| **NACA4D\_10** | **0.002267** | **0.003147** | **0.000868** | **0.999994** | **0.914501** | **0.999940** |
-| NACA4D\_15 | 0.002013 | 0.003299 | 0.000912 | 0.999995 | 0.911276 | 0.999931 |
+| NACA4D\_05 | 0.002180 | 0.003119 | 0.000855 | 0.999994 | 0.919778 | 0.999942 |
+| **NACA4D\_10** | **0.002180** | **0.003164** | **0.000926** | **0.999994** | **0.917902** | **0.999931** |
+| NACA4D\_15 | 0.002240 | 0.003333 | 0.000953 | 0.999994 | 0.909504 | 0.999926 |
 
 ### Cross-Family Generalization
 
@@ -193,9 +193,9 @@ A key question addressed in this study is whether a network trained on one NACA 
 
 | Train Set | Test Set | $R^2$ ($C_L$) | $R^2$ ($C_D$) | $R^2$ ($C_m$) |
 |---|---|---|---|---|
-| NACA4D\_10 | NACA5D\_10 | 0.995584 | 0.471389 | 0.881492 |
-| NACA5D\_10 | NACA4D\_10 | 0.999092 | 0.722853 | 0.988516 |
-| NACA4D\_10 ∪ NACA5D\_10 | NACA4D\_10 ∪ NACA5D\_10 | 0.999995 | 0.890248 | 0.999941 |
+| NACA4D\_10 | NACA5D\_10 | 0.995202 | 0.509400 | 0.858013 |
+| NACA5D\_10 | NACA4D\_10 | 0.999468 | 0.682893 | 0.988019 |
+| NACA4D\_10 ∪ NACA5D\_10 | NACA4D\_10 ∪ NACA5D\_10 | 0.999994 | 0.888772 | 0.999927 |
 
 This behavior is interpreted as evidence that the network learns the **collective geometric design space** -- the envelope of all possible normalized coordinate distributions -- rather than individual airfoil profiles. Consequently, it generalizes to unseen geometries that lie within this space.
 
@@ -205,12 +205,12 @@ The drag coefficient consistently yielded the lowest $R^2$ in cross-family tests
 
 ## Key Findings
 
-1. **ANNs are viable aerodynamic surrogates.** Multilayer perceptrons trained on normalized surface coordinates predict $C_L$ and $C_m$ with $R^2 > 0.999$ on in-distribution test data, and $C_D$ with $R^2 > 0.91$ -- sufficient for preliminary design and real-time control applications.
+1. **ANNs are viable aerodynamic surrogates.** Multilayer perceptrons trained on normalized surface coordinates predict $C_L$ and $C_m$ with $R^2 > 0.999$ on in-distribution test data, and $C_D$ with $R^2 > 0.84$ -- sufficient for preliminary design and real-time control applications.
 
-2. **Geometric sparsity is not a barrier.** The network achieves $R^2 > 0.90$ on all outputs even when only five chordwise coordinate pairs are supplied per airfoil, a level of geometric information far below what is required by CFD meshes.
+2. **Geometric sparsity is not a barrier.** The network achieves $R^2 > 0.90$ on all outputs for NACA4D_05 when only five chordwise coordinate pairs are supplied per airfoil, a level of geometric information far below what is required by CFD meshes.
 
-3. **Four hidden layers with [512, 256, 128, 3] neurons represent the optimal depth–width tradeoff** within the tested configurations. Shallower or narrower networks underfit; deeper or wider networks offer diminishing returns at greater computational cost.
+3. **Three hidden layers with [512, 256, 128, 3] neurons represent a depth–width tradeoff** within the tested configurations. Shallower or narrower networks underfit; deeper or wider networks offer diminishing returns at greater computational cost.
 
-4. **Cross-family generalization is robust for $C_L$ and $C_m$, but limited for $C_D$ in single-direction transfer.** Training on the combined dataset removes this limitation almost entirely. The network appears to learn the geometric design space rather than memorizing individual profiles.
+4. **Cross-family generalization is robust for $C_L$ and $C_m$, but limited for $C_D$ in single-direction transfer.** Training on the combined dataset improves drag prediction relative to single-direction transfer. The network appears to learn the geometric design space rather than memorizing individual profiles.
 
 5. **Drag prediction in the stall regime remains a known limitation.** The restricted angle-of-attack range (−10° to +10°) and the predominance of linear $C_L$–$\alpha$ samples in the dataset introduce a mild bias that causes the model to underperform near stall angles, particularly for airfoils such as NACA 2412 and NACA 6408.

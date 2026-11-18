@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 
-import os
-import time
 import csv
+import logging
+import os
 import subprocess
+import time
 import xml.etree.ElementTree as ET
-from pathlib import Path
-from itertools import product
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from tqdm import tqdm
+from itertools import product
+from pathlib import Path
+
 import numpy as np
-from collections import defaultdict
+from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 JAVA_BIN = "/usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java"
 JAVAFOIL_JAR = "/home/nevilcp/MH-AeroTools/JavaFoil/javafoil.jar"
@@ -19,13 +22,13 @@ MHCLASSES_JAR = "/home/nevilcp/MH-AeroTools/JavaFoil/mhclasses.jar"
 BASE_DIR = Path.home() / "ML_Aero"
 RESULTS_BASE = BASE_DIR / "results" / "NACA4D_15"
 MACRO_DIR = RESULTS_BASE / "macros"
-XML_DIR   = RESULTS_BASE / "xml"
+XML_DIR = RESULTS_BASE / "xml"
 MASTER_CSV = RESULTS_BASE / "NACA4D_15.csv"
 
-CAMBER_VALUES       = list(range(0, 10))
-CAMBER_LOC_VALUES   = list(range(5, 76, 10))
-THICKNESS_VALUES    = list(range(5, 36, 5))
-MACH_VALUES         = [0.1, 0.2, 0.3]
+CAMBER_VALUES = list(range(10))
+CAMBER_LOC_VALUES = list(range(5, 76, 10))
+THICKNESS_VALUES = list(range(5, 36, 5))
+MACH_VALUES = [0.1, 0.2, 0.3]
 
 RE_START, RE_END, RE_STEP = 1e5, 5e5, 1e5
 AOA_START, AOA_END, AOA_STEP = -10.0, 10.0, 1.0
@@ -65,21 +68,31 @@ Polar.Save("{polar_xml}");
 JavaFoil.Exit();
 """
 
-# Run JavaFoil macro and return exit code
+
+# Run the JavaFoil macro and return its exit code
 def run_javafoil_macro(macro_path: Path):
     cmd = [
-        JAVA_BIN, "-cp", str(MHCLASSES_JAR),
-        "-jar", str(JAVAFOIL_JAR),
-        f"Script={str(macro_path)}"
+        JAVA_BIN,
+        "-cp",
+        str(MHCLASSES_JAR),
+        "-jar",
+        str(JAVAFOIL_JAR),
+        f"Script={macro_path!s}",
     ]
     try:
-        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              encoding="utf-8", timeout=TIMEOUT_JAVAFOIL)
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            encoding="utf-8",
+            timeout=TIMEOUT_JAVAFOIL,
+            check=False,
+        )
         return proc.returncode
     except subprocess.TimeoutExpired:
         return -1
 
-# Parse 101-point geometry XML and return upper/lower lists
+
+# Parse the geometry XML into upper and lower surface points
 def parse_geometry_xml(xml_path: Path):
     try:
         tree = ET.parse(str(xml_path))
@@ -96,13 +109,14 @@ def parse_geometry_xml(xml_path: Path):
             return None, None
         xs = [pt[0] for pt in pts]
         le_index = int(np.argmin(xs))
-        upper = sorted(pts[:le_index + 1], key=lambda z: z[0])
+        upper = sorted(pts[: le_index + 1], key=lambda z: z[0])
         lower = sorted(pts[le_index:], key=lambda z: z[0])
         return upper, lower
-    except Exception:
+    except (OSError, ET.ParseError, ValueError, TypeError):
         return None, None
 
-# Parse polar XML and return a list of (alpha, Re, CL, CD, Cm) rows
+
+# Parse the polar XML into rows of alpha, Reynolds number, CL, CD, and Cm
 def parse_polar_xml(xml_path: Path):
     def _strip_namespace(tree):
         root = tree.getroot()
@@ -121,10 +135,12 @@ def parse_polar_xml(xml_path: Path):
                 continue
             try:
                 Re = int(float(rnode.text))
-            except Exception:
+            except (ValueError, TypeError, OverflowError):
                 continue
-            vars_ = [(v.text or "").strip().lower()
-                     for v in polar.findall(".//variables/variable")]
+            vars_ = [
+                (v.text or "").strip().lower()
+                for v in polar.findall(".//variables/variable")
+            ]
             try:
                 ia = vars_.index("alpha")
                 icl = vars_.index("cl")
@@ -142,11 +158,12 @@ def parse_polar_xml(xml_path: Path):
                     cd = float(vals[icd].text)
                     cm = float(vals[icm].text)
                     polars_out.append((a, Re, cl, cd, cm))
-                except Exception:
+                except (ValueError, TypeError, OverflowError):
                     continue
         return polars_out if polars_out else None
-    except Exception:
+    except (OSError, ET.ParseError, ValueError, TypeError):
         return None
+
 
 # Resample upper and lower surfaces using cosine spacing
 def resample_geometry(upper_pts, lower_pts, n_points):
@@ -160,56 +177,61 @@ def resample_geometry(upper_pts, lower_pts, n_points):
             return None
         xu = (up[:, 0] - minx) / span
         xl = (lo[:, 0] - minx) / span
-        xt = np.array([0.5 * (1 - np.cos(np.pi * i / (n_points - 1)))
-                       for i in range(n_points)])
+        xt = np.array(
+            [0.5 * (1 - np.cos(np.pi * i / (n_points - 1))) for i in range(n_points)]
+        )
         yu = np.interp(xt, xu, up[:, 1])
         yl = np.interp(xt, xl, lo[:, 1])
         return xt, yu, yl
-    except Exception:
+    except (ValueError, TypeError, IndexError, ZeroDivisionError):
         return None
 
-# Check that trailing edge is closed within tolerances
+
+# Check that the trailing edge is closed within the specified tolerances
 def check_true_te(upper, lower):
     try:
         yU = upper[-1][1]
         yL = lower[-1][1]
-        tol_y   = 0.01
+        tol_y = 0.01
         tol_gap = 0.015
-        return (
-            abs(yU) <= tol_y and
-            abs(yL) <= tol_y and
-            abs(yU - yL) <= tol_gap
-        )
-    except Exception:
+        return abs(yU) <= tol_y and abs(yL) <= tol_y and abs(yU - yL) <= tol_gap
+    except (TypeError, IndexError):
         return False
 
-# Generate, parse and clean a single case; returns CSV rows or None
+
+# Generate and clean one case, returning CSV rows or None
 def process_case(idx: int, params: tuple):
     camber, camber_loc, thickness, mach = params
     prefix = f"{idx:04d}"
 
-    geom_xml  = XML_DIR / f"{prefix}_geom.xml"
+    geom_xml = XML_DIR / f"{prefix}_geom.xml"
     polar_xml = XML_DIR / f"{prefix}_polar.xml"
-    macro_js  = MACRO_DIR / f"{prefix}_macro.js"
+    macro_js = MACRO_DIR / f"{prefix}_macro.js"
 
     for f in (geom_xml, polar_xml):
         try:
             if f.exists():
                 f.unlink()
-        except:
-            pass
+        except OSError:
+            logger.exception("Could not remove stale output %s", f)
 
     macro = MACRO_TEMPLATE.format(
-        thickness=thickness, camber=camber, camber_loc=camber_loc,
+        thickness=thickness,
+        camber=camber,
+        camber_loc=camber_loc,
         mach=mach,
-        re_start=int(RE_START), re_end=int(RE_END), re_step=int(RE_STEP),
-        aoa_start=AOA_START, aoa_end=AOA_END, aoa_step=AOA_STEP,
-        geom_xml=str(geom_xml).replace("\\","/"),
-        polar_xml=str(polar_xml).replace("\\","/")
+        re_start=int(RE_START),
+        re_end=int(RE_END),
+        re_step=int(RE_STEP),
+        aoa_start=AOA_START,
+        aoa_end=AOA_END,
+        aoa_step=AOA_STEP,
+        geom_xml=str(geom_xml).replace("\\", "/"),
+        polar_xml=str(polar_xml).replace("\\", "/"),
     )
     macro_js.write_text(macro, encoding="utf-8")
 
-    rc = run_javafoil_macro(macro_js)
+    run_javafoil_macro(macro_js)
     time.sleep(POST_WAIT)
 
     upper, lower = parse_geometry_xml(geom_xml)
@@ -227,46 +249,52 @@ def process_case(idx: int, params: tuple):
     if res is None:
         return None
     _, yu, yl = res
-    yU = [f"{float(round(v,8)):.8f}" for v in yu[1:-1]]
-    yL = [f"{float(round(v,8)):.8f}" for v in yl[1:-1]]
+    yU = [f"{float(round(v, 8)):.8f}" for v in yu[1:-1]]
+    yL = [f"{float(round(v, 8)):.8f}" for v in yl[1:-1]]
 
     rows = []
     for a, Re, cl, cd, cm in polars:
         if not all(map(np.isfinite, (a, cl, cd, cm))):
             continue
-        rows.append([thickness, camber, camber_loc] + yU + yL +
-                    [a, mach, Re, cl, cd, cm])
+        rows.append(
+            [thickness, camber, camber_loc] + yU + yL + [a, mach, Re, cl, cd, cm]
+        )
 
     return rows if rows else None
 
-# Main: enumerates parameter sets, runs cases in parallel, writes CSV
+
+# Run all parameter combinations in parallel and write the dataset to CSV
 def main():
     for d in (MASTER_CSV.parent, MACRO_DIR, XML_DIR):
         d.mkdir(parents=True, exist_ok=True)
 
-    geom_cols = [f"yU{k}" for k in range(1, N_INNER+1)] + \
-                [f"yL{k}" for k in range(1, N_INNER+1)]
-    header = ["t","m","p"] + geom_cols + ["alpha","M","Re","CL","CD","Cm"]
+    geom_cols = [f"yU{k}" for k in range(1, N_INNER + 1)] + [
+        f"yL{k}" for k in range(1, N_INNER + 1)
+    ]
+    header = ["t", "m", "p"] + geom_cols + ["alpha", "M", "Re", "CL", "CD", "Cm"]
 
     with MASTER_CSV.open("w", newline="", encoding="utf-8") as f:
         csv.writer(f).writerow(header)
 
-    params = list(product(CAMBER_VALUES, CAMBER_LOC_VALUES,
-                          THICKNESS_VALUES, MACH_VALUES))
+    params = list(
+        product(CAMBER_VALUES, CAMBER_LOC_VALUES, THICKNESS_VALUES, MACH_VALUES)
+    )
 
     batch = []
     accepted_cases = 0
     rejected_cases = 0
 
     with ProcessPoolExecutor(max_workers=MAX_WORKERS) as ex:
-        futures = {ex.submit(process_case, idx, p): (idx, p)
-                   for idx, p in enumerate(params, 1)}
+        futures = {
+            ex.submit(process_case, idx, p): (idx, p) for idx, p in enumerate(params, 1)
+        }
 
         for fut in tqdm(as_completed(futures), total=len(futures), desc="Processing"):
-            idx, p = futures[fut]
+            _idx, _p = futures[fut]
             try:
                 out = fut.result()
             except Exception:
+                logger.exception("Case failed: %s", futures[fut])
                 rejected_cases += 1
                 continue
 
@@ -287,6 +315,6 @@ def main():
     print(f"\nDone. Accepted cases: {accepted_cases}, Rejected cases: {rejected_cases}")
     print("Cleaned dataset saved to:", MASTER_CSV)
 
+
 if __name__ == "__main__":
     main()
-

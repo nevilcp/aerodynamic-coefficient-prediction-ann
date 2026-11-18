@@ -11,5 +11,10 @@ venv/
 # Editor
 .vscode/
 
-# Research paper
-Airfoil*Neural Network.pdf.pdf
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+
+# PDF documents
+report.pdf
+airfoil-aerodynamic-coefficients-ann.pdf
