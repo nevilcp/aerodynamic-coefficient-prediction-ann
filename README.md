@@ -142,7 +142,7 @@ The pooled notebook compares its seed-42 predictions with published polars for N
 
 The pooled 10-point package contains a seed-42 Keras checkpoint trained on the geometry-grouped split, the fitted feature standardization, and a runnable prediction example. The model card reports the packaged checkpoint's scores and the 20-run benchmark separately. [GitHub Releases](https://github.com/nevilcp/aerodynamic-coefficient-prediction-ann/releases)
 
-To rebuild the package, use the six training datasets from Setup and the split export produced by the geometry notebook. The release archive also includes this export as `benchmark.json.gz`, which can be passed to the build script with `--benchmark`.
+To rebuild the package, use the two 10-point training CSVs from Setup and the pooled split export produced by the geometry notebook. The release archive also includes this export as `benchmark.json.gz`, which can be passed to the build script with `--benchmark`.
 
 ```bash
 python scripts/build_pooled_model.py naca-pooled-10-geometry

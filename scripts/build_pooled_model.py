@@ -103,7 +103,8 @@ moment (Cm) for NACA 4- and 5-digit airfoils. The model has hidden layers of
 
 ## Run the example
 
-From the unpacked directory, install the tested dependencies and run:
+Use Python 3.14 for the tested environment. Run the following commands from
+the unpacked directory.
 
 ```bash
 python -m pip install -r requirements.txt
@@ -139,6 +140,31 @@ research and reproduction of this simulation benchmark.
 """,
         encoding="utf-8",
     )
+
+
+def record_evaluation(directory, benchmark, test, predictions):
+    rmse = np.sqrt(
+        mean_squared_error(test[TARGETS], predictions, multioutput="raw_values")
+    )
+    r2 = r2_score(test[TARGETS], predictions, multioutput="raw_values")
+    metrics = {
+        name: {"rmse": float(error), "r2": float(score)}
+        for name, error, score in zip(TARGETS, rmse, r2, strict=True)
+    }
+    write_json(
+        directory / "evaluation.json",
+        {
+            "seed": SEED,
+            "test_rows": len(test),
+            "test": metrics,
+            "training_versions": {
+                "python": sys.version.split()[0],
+                "pandas": pd.__version__,
+                "scikit-learn": sklearn.__version__,
+            },
+        },
+    )
+    write_model_card(directory, benchmark, metrics)
 
 
 def main():
@@ -192,28 +218,7 @@ def main():
     predictions = reloaded.predict(
         scaler.transform(test[FEATURES]), batch_size=128, verbose=0
     )
-    rmse = np.sqrt(
-        mean_squared_error(test[TARGETS], predictions, multioutput="raw_values")
-    )
-    r2 = r2_score(test[TARGETS], predictions, multioutput="raw_values")
-    metrics = {
-        name: {"rmse": error, "r2": score}
-        for name, error, score in zip(TARGETS, rmse, r2, strict=True)
-    }
-    write_json(
-        args.output / "evaluation.json",
-        {
-            "seed": SEED,
-            "test_rows": len(test),
-            "test": metrics,
-            "training_versions": {
-                "python": sys.version.split()[0],
-                "pandas": pd.__version__,
-                "scikit-learn": sklearn.__version__,
-            },
-        },
-    )
-    write_model_card(args.output, benchmark, metrics)
+    record_evaluation(args.output, benchmark, test, predictions)
 
 
 if __name__ == "__main__":
