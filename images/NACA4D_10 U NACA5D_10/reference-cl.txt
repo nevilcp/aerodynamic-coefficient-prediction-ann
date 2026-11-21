@@ -1,0 +1,1 @@
+Actual and predicted CL versus angle of attack at M = 0.25 and Re = 250,000.

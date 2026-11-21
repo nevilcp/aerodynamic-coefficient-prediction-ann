@@ -1,1 +1,1 @@
-Geometry envelopes of the NACA 4-digit and 5-digit airfoils at the sampled surface coordinates.
+Convex hull of the combined NACA 4-digit and 5-digit design space at the sampled surface coordinates. The four reference profiles are interpolated through their sampled ordinates.
